@@ -1,0 +1,15 @@
+{
+  "name": "corredor-3-lineas",
+  "version": "0.3.2",
+  "private": true,
+  "description": "Original 3-Lane Endless Runner (Stage 1) with pseudo-3D projection on HTML5 Canvas.",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node --check server.js",
+    "lint": "node --check server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

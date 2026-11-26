@@ -1,0 +1,5 @@
+{
+  "name": "Endless Runner - Projection Polish v0.3.2",
+  "description": "Original 3-Lane Endless Runner (Stage 1) with pseudo-3D projection on HTML5 Canvas.",
+  "requestFramePermissions": []
+}
