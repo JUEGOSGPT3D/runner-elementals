@@ -1,27 +1,31 @@
 /* ============================================================================
    MODULE 2: PLAYER & CONTROLS — PLAYER PLACEHOLDER & HITBOX (player.js)
+   Version: v2.3.1
    ============================================================================ */
 (function (GameCore, Projection) {
   'use strict';
 
   // ============================================================================
   // Public API (window.Player — zero allocations per call):
-  // - reset() -> resets runtime lane and coordinates to default center lane position
-  // - update(dt) -> smoothly moves playerX toward targetLane world X without overshoot
-  // - render(ctx) -> draws placeholder shadow, body, head, and debug hitbox faces
+  // - reset() -> resets runtime lane, coordinates, and jump state to default center start
+  // - update(dt) -> smoothly moves playerX toward targetLane and advances parabolic jump arc
+  // - render(ctx) -> draws ground shadow, jump-raised body and head, and debug hitbox faces
   // - getHitbox(out) -> writes world-space AABB into out (or shared object) and returns it
   // - moveLane(dir) -> shifts targetLane by -1 or +1 within [MIN_LANE, MAX_LANE]
+  // - jump() -> starts a single parabolic jump from the ground (no double jump)
   // ============================================================================
 
   if (!GameCore || !Projection) return;
 
-  // World position and lane movement constants (logical world units)
+  // World position, lane movement, and jump constants (logical world units / seconds)
   const PLAYER_Z = 60;
   const PLAYER_WORLD_X = 0;
   const MIN_LANE = -1;
   const MAX_LANE = 1;
   const START_LANE = 0;
   const LANE_SPEED = 800;
+  const JUMP_HEIGHT = 120;
+  const JUMP_DURATION = 0.6;
 
   // Hitbox constants (world units, Y = height above ground; Z depths relative to playerZ)
   const HITBOX_MIN_X = -25;
@@ -56,16 +60,22 @@
   const hitboxOut = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 };
   const debugBox = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 };
 
-  // Runtime player coordinates and lane state
+  // Runtime player coordinates, lane state, and jump state
   let targetLane = START_LANE;
   let playerX = PLAYER_WORLD_X;
   let playerZ = PLAYER_Z;
+  let isJumping = false;
+  let jumpTime = 0;
+  let jumpY = 0;
 
-  // Resets runtime player lane and coordinates to the default center lane start position.
+  // Resets runtime player lane, coordinates, and jump state to the default center lane start position.
   function reset() {
     targetLane = START_LANE;
     playerX = PLAYER_WORLD_X;
     playerZ = PLAYER_Z;
+    isJumping = false;
+    jumpTime = 0;
+    jumpY = 0;
   }
 
   // Updates targetLane by -1 or +1 clamped to [MIN_LANE, MAX_LANE], ignoring 0 or non-finite dir.
@@ -78,23 +88,44 @@
     targetLane = nextLane;
   }
 
-  // Smoothly moves playerX toward the targetLane world X at LANE_SPEED without overshoot.
+  // Starts a parabolic jump from the ground; ignores calls while already airborne.
+  function jump() {
+    if (isJumping) return;
+    isJumping = true;
+    jumpTime = 0;
+    jumpY = 0;
+  }
+
+  // Smoothly moves playerX toward targetLane without overshoot and advances any active jump arc.
   function update(dt) {
     if (!Number.isFinite(dt) || dt <= 0) return;
     const targetX = Projection.laneX(targetLane);
     const diff = targetX - playerX;
-    if (diff === 0) return;
-    const step = LANE_SPEED * dt;
-    if (diff > 0) {
-      if (diff <= step) {
+    if (diff !== 0) {
+      const step = LANE_SPEED * dt;
+      if (diff > 0) {
+        if (diff <= step) {
+          playerX = targetX;
+        } else {
+          playerX += step;
+        }
+      } else if (-diff <= step) {
         playerX = targetX;
       } else {
-        playerX += step;
+        playerX -= step;
       }
-    } else if (-diff <= step) {
-      playerX = targetX;
-    } else {
-      playerX -= step;
+    }
+
+    if (isJumping) {
+      jumpTime += dt;
+      const u = jumpTime / JUMP_DURATION;
+      if (u >= 1) {
+        isJumping = false;
+        jumpTime = 0;
+        jumpY = 0;
+      } else {
+        jumpY = 4 * JUMP_HEIGHT * u * (1 - u);
+      }
     }
   }
 
@@ -103,8 +134,8 @@
     const target = out || hitboxOut;
     target.minX = playerX + HITBOX_MIN_X;
     target.maxX = playerX + HITBOX_MAX_X;
-    target.minY = HITBOX_MIN_Y;
-    target.maxY = HITBOX_MAX_Y;
+    target.minY = HITBOX_MIN_Y + jumpY;
+    target.maxY = HITBOX_MAX_Y + jumpY;
     target.minZ = playerZ - HITBOX_DEPTH_NEAR;
     target.maxZ = playerZ + HITBOX_DEPTH_FAR;
     return target;
@@ -124,20 +155,22 @@
     ctx.ellipse(projOut.x, projOut.y, SHADOW_RX * s, SHADOW_RY * s, 0, 0, TWO_PI);
     ctx.fill();
 
-    // 2. Body rectangle centered at projOut.x with bottom at projOut.y
+    // 2. Body rectangle raised by jumpY above ground at baseY
+    const jumpOffsetPx = jumpY * s;
+    const baseY = projOut.y - jumpOffsetPx;
     const bodyW = BODY_WIDTH * s;
     const bodyH = BODY_HEIGHT * s;
     const bodyLeft = projOut.x - bodyW * 0.5;
-    const bodyTop = projOut.y - bodyH;
+    const bodyTop = baseY - bodyH;
     ctx.fillStyle = COLORS.body;
     ctx.fillRect(bodyLeft, bodyTop, bodyW, bodyH);
     ctx.strokeStyle = COLORS.bodyStroke;
     ctx.lineWidth = 1.5;
     ctx.strokeRect(bodyLeft, bodyTop, bodyW, bodyH);
 
-    // 3. Head circle above body (top reaches HEAD_CENTER_Y + HEAD_RADIUS = 90)
+    // 3. Head circle above body raised by jumpY (top reaches HEAD_CENTER_Y + HEAD_RADIUS = 90)
     const headR = HEAD_RADIUS * s;
-    const headY = projOut.y - HEAD_CENTER_Y * s;
+    const headY = baseY - HEAD_CENTER_Y * s;
     ctx.fillStyle = COLORS.head;
     ctx.beginPath();
     ctx.arc(projOut.x, headY, headR, 0, TWO_PI);
@@ -173,12 +206,13 @@
     }
   }
 
-  // Expose frozen public API (strictly 5 methods)
+  // Expose frozen public API (strictly 6 methods)
   window.Player = Object.freeze({
     reset: reset,
     update: update,
     render: render,
     getHitbox: getHitbox,
-    moveLane: moveLane
+    moveLane: moveLane,
+    jump: jump
   });
 })(window.GameCore, window.Projection);

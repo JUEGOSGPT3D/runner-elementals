@@ -1,5 +1,6 @@
 /* ============================================================================
    BLOCK C — TEMPORARY STATES (to be replaced by later Modules)
+   Version: v2.3.1
    ============================================================================ */
 (function (GameCore, Projection) {
   'use strict';
@@ -407,10 +408,14 @@
     }
   }
 
-  // Routes horizontal swipes during unpaused PLAYING into Player.moveLane.
+  // Routes horizontal swipes to Player.moveLane and upward swipes to Player.jump during unpaused PLAYING.
   function onPlayingSwipe(dirX, dirY) {
-    if (!GameCore.isPaused() && dirX !== 0 && window.Player) {
+    if (GameCore.getState() !== 'PLAYING' || GameCore.isPaused()) return;
+    if (!window.Player) return;
+    if (dirX !== 0) {
       window.Player.moveLane(dirX);
+    } else if (dirY === -1) {
+      window.Player.jump();
     }
   }
 
