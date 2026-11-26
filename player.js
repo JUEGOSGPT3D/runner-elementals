@@ -17,13 +17,13 @@
   const PLAYER_Z = 60;
   const PLAYER_WORLD_X = 0;
 
-  // Hitbox constants (world units, Y = height above ground)
+  // Hitbox constants (world units, Y = height above ground; Z depths relative to playerZ)
   const HITBOX_MIN_X = -25;
   const HITBOX_MAX_X = 25;
   const HITBOX_MIN_Y = 0;
   const HITBOX_MAX_Y = 90;
-  const HITBOX_MIN_Z = 45;
-  const HITBOX_MAX_Z = 75;
+  const HITBOX_DEPTH_NEAR = 15;
+  const HITBOX_DEPTH_FAR = 15;
 
   // Placeholder shape constants (world units)
   const BODY_WIDTH = 50;
@@ -67,8 +67,8 @@
     target.maxX = playerX + HITBOX_MAX_X;
     target.minY = HITBOX_MIN_Y;
     target.maxY = HITBOX_MAX_Y;
-    target.minZ = playerZ - 15;
-    target.maxZ = playerZ + 15;
+    target.minZ = playerZ - HITBOX_DEPTH_NEAR;
+    target.maxZ = playerZ + HITBOX_DEPTH_FAR;
     return target;
   }
 
