@@ -1,6 +1,6 @@
 /* ============================================================================
    MODULE 2: PLAYER & CONTROLS — PLAYER PLACEHOLDER & HITBOX (player.js)
-   Version: v2.3.3
+   Version: v2.3.4
    ============================================================================ */
 (function (GameCore, Projection) {
   'use strict';
@@ -23,9 +23,9 @@
   const MIN_LANE = -1;
   const MAX_LANE = 1;
   const START_LANE = 0;
-  const LANE_SPEED = 1120;
+  const LANE_SPEED = 1400;
   const JUMP_HEIGHT = 168;
-  const JUMP_DURATION = 0.6;
+  const JUMP_DURATION = 0.5;
 
   // Hitbox constants (world units, Y = height above ground; Z depths relative to playerZ)
   const HITBOX_MIN_X = -35;
