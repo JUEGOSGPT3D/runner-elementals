@@ -57,14 +57,12 @@
   const debugBox = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 };
 
   // Runtime player coordinates and lane state
-  let currentLane = START_LANE;
   let targetLane = START_LANE;
   let playerX = PLAYER_WORLD_X;
   let playerZ = PLAYER_Z;
 
   // Resets runtime player lane and coordinates to the default center lane start position.
   function reset() {
-    currentLane = START_LANE;
     targetLane = START_LANE;
     playerX = PLAYER_WORLD_X;
     playerZ = PLAYER_Z;
@@ -85,21 +83,16 @@
     if (!Number.isFinite(dt) || dt <= 0) return;
     const targetX = Projection.laneX(targetLane);
     const diff = targetX - playerX;
-    if (diff === 0) {
-      currentLane = targetLane;
-      return;
-    }
+    if (diff === 0) return;
     const step = LANE_SPEED * dt;
     if (diff > 0) {
       if (diff <= step) {
         playerX = targetX;
-        currentLane = targetLane;
       } else {
         playerX += step;
       }
     } else if (-diff <= step) {
       playerX = targetX;
-      currentLane = targetLane;
     } else {
       playerX -= step;
     }

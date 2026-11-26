@@ -27,6 +27,7 @@
   let enabled = false;
   let listenersBound = false;
   let activePointerId = null;
+  let gestureConsumed = false;
   let swipeHandler = null;
   let tapHandler = null;
 
@@ -42,65 +43,84 @@
     }
   }
 
-  // Starts tracking a primary pointer press in logical coordinates when enabled and unpaused.
+  // Starts tracking a primary pointer press in logical coordinates, recovering from any stale active pointer.
   function handlePointerDown(event) {
-    if (!enabled || !event.isPrimary || activePointerId !== null || GameCore.isPaused()) return;
+    if (!enabled || !event.isPrimary || GameCore.isPaused()) return;
     event.preventDefault();
 
+    if (activePointerId !== null) {
+      releaseCaptureSafe(activePointerId);
+      activePointerId = null;
+      gestureConsumed = false;
+    }
+
     activePointerId = event.pointerId;
+    gestureConsumed = false;
+    GameCore.screenToGame(event.clientX, event.clientY, startPos);
+
     if (canvas && typeof canvas.setPointerCapture === 'function') {
       try {
-        canvas.setPointerCapture(event.pointerId);
+        canvas.setPointerCapture(activePointerId);
       } catch (err) {
         // Ignore capture errors on synthetic pointers.
       }
     }
-
-    GameCore.screenToGame(event.clientX, event.clientY, startPos);
   }
 
-  // Prevents browser default gestures while tracking the active primary pointer without emitting swipes.
+  // Detects and emits a single directional swipe on pointermove once dominant displacement reaches SWIPE_MIN.
   function handlePointerMove(event) {
-    if (!enabled || !event.isPrimary || event.pointerId !== activePointerId) return;
+    if (!enabled || activePointerId === null || event.pointerId !== activePointerId) return;
     event.preventDefault();
-  }
+    if (gestureConsumed) return;
 
-  // Classifies the completed gesture on pointer release as a tap, directional swipe, or no-op.
-  function handlePointerUp(event) {
-    if (!enabled || !event.isPrimary || event.pointerId !== activePointerId) return;
-    event.preventDefault();
-
-    releaseCaptureSafe(event.pointerId);
     GameCore.screenToGame(event.clientX, event.clientY, endPos);
 
     const dx = endPos.x - startPos.x;
     const dy = endPos.y - startPos.y;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    const dominant = absX >= absY ? absX : absY;
+
+    if (dominant >= SWIPE_MIN) {
+      gestureConsumed = true;
+      if (swipeHandler) {
+        if (absX >= absY) {
+          swipeHandler(dx > 0 ? 1 : -1, 0);
+        } else {
+          swipeHandler(0, dy > 0 ? 1 : -1);
+        }
+      }
+    }
+  }
+
+  // Releases the tracked pointer and emits a tap when unconsumed movement stays below TAP_MAX.
+  function handlePointerUp(event) {
+    if (!enabled || activePointerId === null || event.pointerId !== activePointerId) return;
+    event.preventDefault();
+
+    releaseCaptureSafe(activePointerId);
     activePointerId = null;
 
-    if (dx * dx + dy * dy < TAP_MAX_SQ) {
-      if (tapHandler) {
-        tapHandler();
-      }
+    if (gestureConsumed) {
+      gestureConsumed = false;
       return;
     }
 
-    const absX = dx < 0 ? -dx : dx;
-    const absY = dy < 0 ? -dy : dy;
+    GameCore.screenToGame(event.clientX, event.clientY, endPos);
+    const dx = endPos.x - startPos.x;
+    const dy = endPos.y - startPos.y;
 
-    if (absX >= absY) {
-      if (absX >= SWIPE_MIN && swipeHandler) {
-        swipeHandler(dx > 0 ? 1 : -1, 0);
-      }
-    } else if (absY >= SWIPE_MIN && swipeHandler) {
-      swipeHandler(0, dy > 0 ? 1 : -1);
+    if (dx * dx + dy * dy < TAP_MAX_SQ && tapHandler) {
+      tapHandler();
     }
   }
 
   // Cancels active pointer tracking safely without emitting a tap or swipe.
   function handlePointerCancel(event) {
-    if (event.pointerId !== activePointerId) return;
-    releaseCaptureSafe(event.pointerId);
+    if (activePointerId === null || event.pointerId !== activePointerId) return;
+    releaseCaptureSafe(activePointerId);
     activePointerId = null;
+    gestureConsumed = false;
   }
 
   // Stores or clears swipe and tap callback functions without retaining the passed object.
@@ -133,6 +153,7 @@
       releaseCaptureSafe(activePointerId);
       activePointerId = null;
     }
+    gestureConsumed = false;
     if (listenersBound && canvas) {
       canvas.removeEventListener('pointerdown', handlePointerDown);
       canvas.removeEventListener('pointermove', handlePointerMove);
