@@ -407,6 +407,28 @@
     }
   }
 
+  // Routes horizontal swipes during unpaused PLAYING into Player.moveLane.
+  function onPlayingSwipe(dirX, dirY) {
+    if (!GameCore.isPaused() && dirX !== 0 && window.Player) {
+      window.Player.moveLane(dirX);
+    }
+  }
+
+  // Handles debounced taps during unpaused PLAYING to transition to GAMEOVER.
+  function onPlayingTap() {
+    if (GameCore.isPaused()) return;
+    const now = performance.now();
+    if (lastTapTime > 0 && now - lastTapTime < TAP_DEBOUNCE_MS) return;
+    lastTapTime = now;
+    GameCore.setState('GAMEOVER');
+  }
+
+  // Preallocated handler table passed to Input.setHandlers on entering PLAYING
+  const playingInputHandlers = Object.freeze({
+    swipe: onPlayingSwipe,
+    tap: onPlayingTap
+  });
+
   // Picks one biome per run and resets scroll offsets and run timer on entering PLAYING.
   function onPlayingEnter() {
     chooseBiome();
@@ -420,12 +442,20 @@
     if (window.Player) {
       window.Player.reset();
     }
+    if (window.Input) {
+      window.Input.setHandlers(playingInputHandlers);
+      window.Input.enable();
+    }
   }
 
   // Captures and caches the final formatted run time when leaving PLAYING.
   function onPlayingExit() {
     finalRunTime = runTime;
     cachedFinalTimeLabel = 'Time: ' + finalRunTime.toFixed(1) + 's';
+    if (window.Input) {
+      window.Input.disable();
+      window.Input.setHandlers(null);
+    }
   }
 
   // Advances road stripe offset, scenery offset, and run timer using dt.
@@ -455,6 +485,10 @@
     if (tenths !== lastTenths) {
       lastTenths = tenths;
       cachedTimeLabel = 'Time: ' + (tenths / 10).toFixed(1) + 's';
+    }
+
+    if (window.Player) {
+      window.Player.update(dt);
     }
   }
 
@@ -577,7 +611,15 @@
   // Handles temporary pointerdown taps with 250ms debounce to resume pause or cycle states.
   function handleTempPointerDown(event) {
     if (!event.isPrimary) return;
+
+    const active = GameCore.getState();
+    if (active === 'PLAYING' && !GameCore.isPaused()) return;
+
     event.preventDefault();
+
+    if (active === 'PLAYING' && GameCore.isPaused()) {
+      event.stopImmediatePropagation();
+    }
 
     const now = performance.now();
     if (lastTapTime > 0 && now - lastTapTime < TAP_DEBOUNCE_MS) return;
@@ -588,7 +630,6 @@
       return;
     }
 
-    const active = GameCore.getState();
     if (active === 'MENU') {
       GameCore.setState('PLAYING');
     } else if (active === 'PLAYING') {

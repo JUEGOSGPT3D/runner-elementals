@@ -6,16 +6,22 @@
 
   // ============================================================================
   // Public API (window.Player — zero allocations per call):
-  // - reset() -> resets runtime player coordinates to default center lane position
+  // - reset() -> resets runtime lane and coordinates to default center lane position
+  // - update(dt) -> smoothly moves playerX toward targetLane world X without overshoot
   // - render(ctx) -> draws placeholder shadow, body, head, and debug hitbox faces
   // - getHitbox(out) -> writes world-space AABB into out (or shared object) and returns it
+  // - moveLane(dir) -> shifts targetLane by -1 or +1 within [MIN_LANE, MAX_LANE]
   // ============================================================================
 
   if (!GameCore || !Projection) return;
 
-  // World position constants (logical world units)
+  // World position and lane movement constants (logical world units)
   const PLAYER_Z = 60;
   const PLAYER_WORLD_X = 0;
+  const MIN_LANE = -1;
+  const MAX_LANE = 1;
+  const START_LANE = 0;
+  const LANE_SPEED = 800;
 
   // Hitbox constants (world units, Y = height above ground; Z depths relative to playerZ)
   const HITBOX_MIN_X = -25;
@@ -50,14 +56,53 @@
   const hitboxOut = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 };
   const debugBox = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 };
 
-  // Runtime player coordinates
+  // Runtime player coordinates and lane state
+  let currentLane = START_LANE;
+  let targetLane = START_LANE;
   let playerX = PLAYER_WORLD_X;
   let playerZ = PLAYER_Z;
 
-  // Resets runtime player coordinates to the default center lane start position.
+  // Resets runtime player lane and coordinates to the default center lane start position.
   function reset() {
+    currentLane = START_LANE;
+    targetLane = START_LANE;
     playerX = PLAYER_WORLD_X;
     playerZ = PLAYER_Z;
+  }
+
+  // Updates targetLane by -1 or +1 clamped to [MIN_LANE, MAX_LANE], ignoring 0 or non-finite dir.
+  function moveLane(dir) {
+    if (!Number.isFinite(dir) || dir === 0) return;
+    let nextLane = targetLane + (dir > 0 ? 1 : -1);
+    if (nextLane < MIN_LANE) nextLane = MIN_LANE;
+    if (nextLane > MAX_LANE) nextLane = MAX_LANE;
+    if (nextLane === targetLane) return;
+    targetLane = nextLane;
+  }
+
+  // Smoothly moves playerX toward the targetLane world X at LANE_SPEED without overshoot.
+  function update(dt) {
+    if (!Number.isFinite(dt) || dt <= 0) return;
+    const targetX = Projection.laneX(targetLane);
+    const diff = targetX - playerX;
+    if (diff === 0) {
+      currentLane = targetLane;
+      return;
+    }
+    const step = LANE_SPEED * dt;
+    if (diff > 0) {
+      if (diff <= step) {
+        playerX = targetX;
+        currentLane = targetLane;
+      } else {
+        playerX += step;
+      }
+    } else if (-diff <= step) {
+      playerX = targetX;
+      currentLane = targetLane;
+    } else {
+      playerX -= step;
+    }
   }
 
   // Writes the player's world-space hitbox bounds into out or hitboxOut without allocating.
@@ -135,10 +180,12 @@
     }
   }
 
-  // Expose frozen public API (strictly 3 methods)
+  // Expose frozen public API (strictly 5 methods)
   window.Player = Object.freeze({
     reset: reset,
+    update: update,
     render: render,
-    getHitbox: getHitbox
+    getHitbox: getHitbox,
+    moveLane: moveLane
   });
 })(window.GameCore, window.Projection);
