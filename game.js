@@ -30,7 +30,7 @@
   // ============================================================================
 
   // Core constants
-  const APP_VERSION = 'v0.3.3';
+  const APP_VERSION = 'v2.1.1';
   const GAME_WIDTH = 360;
   const GAME_HEIGHT = 640;
   const MAX_DT = 0.1;

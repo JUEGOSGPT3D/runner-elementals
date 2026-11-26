@@ -417,6 +417,9 @@
     runTime = 0;
     lastTenths = 0;
     cachedTimeLabel = 'Time: 0.0s';
+    if (window.Player) {
+      window.Player.reset();
+    }
   }
 
   // Captures and caches the final formatted run time when leaving PLAYING.
@@ -487,6 +490,9 @@
   function renderPlaying(ctx) {
     drawTestRoad(ctx);
     drawDebugWorldGuides(ctx);
+    if (window.Player) {
+      window.Player.render(ctx);
+    }
 
     const hudY = GameCore.isDebug() ? 118 : 18;
     const hudW = GAME_WIDTH - 140;
