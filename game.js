@@ -1,5 +1,6 @@
 /* ============================================================================
    BLOCK A — MODULE 1: CORE (future file: game.js)
+   Version: v2.3.2
    ============================================================================ */
 (function () {
   'use strict';
@@ -30,9 +31,10 @@
   // ============================================================================
 
   // Core constants
-  const APP_VERSION = 'v2.3.1';
+  const APP_VERSION = 'v2.3.2';
   const GAME_WIDTH = 360;
   const GAME_HEIGHT = 640;
+  const MAX_CANVAS_PIXELS = 1000000;
   const MAX_DT = 0.1;
   const SLOW_FRAME_MS = 50;
   const RESUME_GAP_MS = 1000;
@@ -261,8 +263,9 @@
       const nextScale = Math.min(nextW / GAME_WIDTH, nextH / GAME_HEIGHT);
       const nextOffsetX = (nextW - GAME_WIDTH * nextScale) / 2;
       const nextOffsetY = (nextH - GAME_HEIGHT * nextScale) / 2;
-      const nextPxW = Math.max(1, Math.round(nextW * nextDpr));
-      const nextPxH = Math.max(1, Math.round(nextH * nextDpr));
+      const effDpr = Math.min(nextDpr, Math.sqrt(MAX_CANVAS_PIXELS / (nextW * nextH)));
+      const nextPxW = Math.max(1, Math.round(nextW * effDpr));
+      const nextPxH = Math.max(1, Math.round(nextH * effDpr));
 
       canvas.width = nextPxW;
       canvas.height = nextPxH;
@@ -273,7 +276,7 @@
       viewportHeight = nextH;
       vpOffsetX = nextOffX;
       vpOffsetY = nextOffY;
-      dpr = nextDpr;
+      dpr = effDpr;
       scale = nextScale;
       offsetX = nextOffsetX;
       offsetY = nextOffsetY;
@@ -471,7 +474,7 @@
     }
 
     if (debugLayoutDirty) {
-      debugLines[3] = 'Canvas: ' + canvasPixelWidth + 'x' + canvasPixelHeight + ' px | DPR: ' + dpr.toFixed(2);
+      debugLines[3] = 'Canvas: ' + canvasPixelWidth + 'x' + canvasPixelHeight + ' px | DPR: ' + dpr.toFixed(2) + ' (dev ' + lastLayoutDpr.toFixed(2) + ')';
       debugLines[4] = 'Viewport: ' + Math.round(viewportWidth) + 'x' + Math.round(viewportHeight) + ' css | Scale: ' + scale.toFixed(4);
       debugLines[5] = 'GameArea: ' + Math.round(GAME_WIDTH * scale) + 'x' + Math.round(GAME_HEIGHT * scale) + ' | Safe: ' + Math.round(safeAreaOut.top) + '/' + Math.round(safeAreaOut.right) + '/' + Math.round(safeAreaOut.bottom) + '/' + Math.round(safeAreaOut.left);
       debugLayoutDirty = false;
