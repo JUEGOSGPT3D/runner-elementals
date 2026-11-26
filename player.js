@@ -1,6 +1,6 @@
 /* ============================================================================
    MODULE 2: PLAYER & CONTROLS — PLAYER PLACEHOLDER & HITBOX (player.js)
-   Version: v2.3.1
+   Version: v2.3.3
    ============================================================================ */
 (function (GameCore, Projection) {
   'use strict';
@@ -23,25 +23,25 @@
   const MIN_LANE = -1;
   const MAX_LANE = 1;
   const START_LANE = 0;
-  const LANE_SPEED = 800;
-  const JUMP_HEIGHT = 120;
+  const LANE_SPEED = 1120;
+  const JUMP_HEIGHT = 168;
   const JUMP_DURATION = 0.6;
 
   // Hitbox constants (world units, Y = height above ground; Z depths relative to playerZ)
-  const HITBOX_MIN_X = -25;
-  const HITBOX_MAX_X = 25;
+  const HITBOX_MIN_X = -35;
+  const HITBOX_MAX_X = 35;
   const HITBOX_MIN_Y = 0;
-  const HITBOX_MAX_Y = 90;
+  const HITBOX_MAX_Y = 126;
   const HITBOX_DEPTH_NEAR = 15;
   const HITBOX_DEPTH_FAR = 15;
 
   // Placeholder shape constants (world units)
-  const BODY_WIDTH = 50;
-  const BODY_HEIGHT = 62;
-  const HEAD_RADIUS = 14;
-  const HEAD_CENTER_Y = 76;
-  const SHADOW_RX = 28;
-  const SHADOW_RY = 8;
+  const BODY_WIDTH = 70;
+  const BODY_HEIGHT = 87;
+  const HEAD_RADIUS = 20;
+  const HEAD_CENTER_Y = 106;
+  const SHADOW_RX = 39;
+  const SHADOW_RY = 11;
   const TWO_PI = Math.PI * 2;
 
   // Frozen flat color palette (gray placeholder tones and non-neon debug hitbox colors)
@@ -168,7 +168,7 @@
     ctx.lineWidth = 1.5;
     ctx.strokeRect(bodyLeft, bodyTop, bodyW, bodyH);
 
-    // 3. Head circle above body raised by jumpY (top reaches HEAD_CENTER_Y + HEAD_RADIUS = 90)
+    // 3. Head circle above body raised by jumpY (top reaches HEAD_CENTER_Y + HEAD_RADIUS = 126)
     const headR = HEAD_RADIUS * s;
     const headY = baseY - HEAD_CENTER_Y * s;
     ctx.fillStyle = COLORS.head;

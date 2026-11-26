@@ -1,5 +1,6 @@
 /* ============================================================================
    BLOCK B — MODULE 1: PROJECTION (future file: projection.js)
+   Version: v2.3.3
    ============================================================================ */
 (function (GameCore) {
   'use strict';
@@ -35,7 +36,7 @@
   const HORIZON_Y = 210;
   const CENTER_X = 180;
   const LANE_COUNT = 3;
-  const LANE_WIDTH = 100;
+  const LANE_WIDTH = 140;
   const Z_FOCAL = 300;
   const Z_FAR = 1500;
   const Z_NEAR = -120;
