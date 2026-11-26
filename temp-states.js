@@ -1,6 +1,6 @@
 /* ============================================================================
    BLOCK C — TEMPORARY STATES (to be replaced by later Modules)
-   Version: v2.3.1
+   Version: v2.3.5
    ============================================================================ */
 (function (GameCore, Projection) {
   'use strict';
@@ -416,6 +416,8 @@
       window.Player.moveLane(dirX);
     } else if (dirY === -1) {
       window.Player.jump();
+    } else if (dirY === 1) {
+      window.Player.slide();
     }
   }
 

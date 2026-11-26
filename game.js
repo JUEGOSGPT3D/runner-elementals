@@ -1,6 +1,6 @@
 /* ============================================================================
    BLOCK A — MODULE 1: CORE (future file: game.js)
-   Version: v2.3.4
+   Version: v2.3.5
    ============================================================================ */
 (function () {
   'use strict';
@@ -31,7 +31,7 @@
   // ============================================================================
 
   // Core constants
-  const APP_VERSION = 'v2.3.4';
+  const APP_VERSION = 'v2.3.5';
   const GAME_WIDTH = 360;
   const GAME_HEIGHT = 640;
   const MAX_CANVAS_PIXELS = 1000000;

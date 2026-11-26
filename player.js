@@ -1,18 +1,19 @@
 /* ============================================================================
    MODULE 2: PLAYER & CONTROLS — PLAYER PLACEHOLDER & HITBOX (player.js)
-   Version: v2.3.4
+   Version: v2.3.5
    ============================================================================ */
 (function (GameCore, Projection) {
   'use strict';
 
   // ============================================================================
   // Public API (window.Player — zero allocations per call):
-  // - reset() -> resets runtime lane, coordinates, and jump state to default center start
-  // - update(dt) -> smoothly moves playerX toward targetLane and advances parabolic jump arc
-  // - render(ctx) -> draws ground shadow, jump-raised body and head, and debug hitbox faces
+  // - reset() -> resets runtime lane, coordinates, jump, fast-fall, and slide state to default center start
+  // - update(dt) -> smoothly moves playerX toward targetLane and advances jump, fast fall, or slide
+  // - render(ctx) -> draws ground shadow, standing or sliding body and head, and debug hitbox faces
   // - getHitbox(out) -> writes world-space AABB into out (or shared object) and returns it
   // - moveLane(dir) -> shifts targetLane by -1 or +1 within [MIN_LANE, MAX_LANE]
-  // - jump() -> starts a single parabolic jump from the ground (no double jump)
+  // - jump() -> starts a single parabolic jump from ground or cancels an active slide
+  // - slide() -> starts a timed slide on ground or triggers airborne fast fall into slide
   // ============================================================================
 
   if (!GameCore || !Projection) return;
@@ -26,20 +27,25 @@
   const LANE_SPEED = 1400;
   const JUMP_HEIGHT = 168;
   const JUMP_DURATION = 0.5;
+  const SLIDE_DURATION = 0.6;
+  const FAST_FALL_SPEED = 1400;
 
   // Hitbox constants (world units, Y = height above ground; Z depths relative to playerZ)
   const HITBOX_MIN_X = -35;
   const HITBOX_MAX_X = 35;
   const HITBOX_MIN_Y = 0;
   const HITBOX_MAX_Y = 126;
+  const SLIDE_HITBOX_MAX_Y = 63;
   const HITBOX_DEPTH_NEAR = 15;
   const HITBOX_DEPTH_FAR = 15;
 
   // Placeholder shape constants (world units)
   const BODY_WIDTH = 70;
   const BODY_HEIGHT = 87;
+  const SLIDE_BODY_HEIGHT = 43;
   const HEAD_RADIUS = 20;
   const HEAD_CENTER_Y = 106;
+  const SLIDE_HEAD_CENTER_Y = 43;
   const SHADOW_RX = 39;
   const SHADOW_RY = 11;
   const TWO_PI = Math.PI * 2;
@@ -60,15 +66,18 @@
   const hitboxOut = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 };
   const debugBox = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 };
 
-  // Runtime player coordinates, lane state, and jump state
+  // Runtime player coordinates, lane state, jump state, fast-fall state, and slide state
   let targetLane = START_LANE;
   let playerX = PLAYER_WORLD_X;
   let playerZ = PLAYER_Z;
   let isJumping = false;
   let jumpTime = 0;
   let jumpY = 0;
+  let isSliding = false;
+  let slideTime = 0;
+  let isFastFalling = false;
 
-  // Resets runtime player lane, coordinates, and jump state to the default center lane start position.
+  // Resets runtime player lane, coordinates, jump, fast-fall, and slide state to default center start.
   function reset() {
     targetLane = START_LANE;
     playerX = PLAYER_WORLD_X;
@@ -76,6 +85,9 @@
     isJumping = false;
     jumpTime = 0;
     jumpY = 0;
+    isSliding = false;
+    slideTime = 0;
+    isFastFalling = false;
   }
 
   // Updates targetLane by -1 or +1 clamped to [MIN_LANE, MAX_LANE], ignoring 0 or non-finite dir.
@@ -88,15 +100,31 @@
     targetLane = nextLane;
   }
 
-  // Starts a parabolic jump from the ground; ignores calls while already airborne.
+  // Starts a parabolic jump from ground or cancels an active slide; ignores calls while airborne.
   function jump() {
     if (isJumping) return;
+    if (isSliding) {
+      isSliding = false;
+      slideTime = 0;
+    }
     isJumping = true;
+    isFastFalling = false;
     jumpTime = 0;
     jumpY = 0;
   }
 
-  // Smoothly moves playerX toward targetLane without overshoot and advances any active jump arc.
+  // Starts a timed slide on ground or triggers airborne fast fall into slide; ignores repeat calls.
+  function slide() {
+    if (isSliding || isFastFalling) return;
+    if (isJumping) {
+      isFastFalling = true;
+    } else {
+      isSliding = true;
+      slideTime = 0;
+    }
+  }
+
+  // Smoothly moves playerX toward targetLane and advances any active jump, fast fall, or slide.
   function update(dt) {
     if (!Number.isFinite(dt) || dt <= 0) return;
     const targetX = Projection.laneX(targetLane);
@@ -117,14 +145,32 @@
     }
 
     if (isJumping) {
-      jumpTime += dt;
-      const u = jumpTime / JUMP_DURATION;
-      if (u >= 1) {
-        isJumping = false;
-        jumpTime = 0;
-        jumpY = 0;
+      if (isFastFalling) {
+        jumpY -= FAST_FALL_SPEED * dt;
+        if (jumpY <= 0) {
+          isJumping = false;
+          isFastFalling = false;
+          jumpTime = 0;
+          jumpY = 0;
+          isSliding = true;
+          slideTime = 0;
+        }
       } else {
-        jumpY = 4 * JUMP_HEIGHT * u * (1 - u);
+        jumpTime += dt;
+        const u = jumpTime / JUMP_DURATION;
+        if (u >= 1) {
+          isJumping = false;
+          jumpTime = 0;
+          jumpY = 0;
+        } else {
+          jumpY = 4 * JUMP_HEIGHT * u * (1 - u);
+        }
+      }
+    } else if (isSliding) {
+      slideTime += dt;
+      if (slideTime >= SLIDE_DURATION) {
+        isSliding = false;
+        slideTime = 0;
       }
     }
   }
@@ -135,7 +181,7 @@
     target.minX = playerX + HITBOX_MIN_X;
     target.maxX = playerX + HITBOX_MAX_X;
     target.minY = HITBOX_MIN_Y + jumpY;
-    target.maxY = HITBOX_MAX_Y + jumpY;
+    target.maxY = (isSliding ? SLIDE_HITBOX_MAX_Y : HITBOX_MAX_Y) + jumpY;
     target.minZ = playerZ - HITBOX_DEPTH_NEAR;
     target.maxZ = playerZ + HITBOX_DEPTH_FAR;
     return target;
@@ -159,7 +205,7 @@
     const jumpOffsetPx = jumpY * s;
     const baseY = projOut.y - jumpOffsetPx;
     const bodyW = BODY_WIDTH * s;
-    const bodyH = BODY_HEIGHT * s;
+    const bodyH = (isSliding ? SLIDE_BODY_HEIGHT : BODY_HEIGHT) * s;
     const bodyLeft = projOut.x - bodyW * 0.5;
     const bodyTop = baseY - bodyH;
     ctx.fillStyle = COLORS.body;
@@ -168,9 +214,9 @@
     ctx.lineWidth = 1.5;
     ctx.strokeRect(bodyLeft, bodyTop, bodyW, bodyH);
 
-    // 3. Head circle above body raised by jumpY (top reaches HEAD_CENTER_Y + HEAD_RADIUS = 126)
+    // 3. Head circle above body raised by jumpY (top reaches 126 standing or 63 sliding)
     const headR = HEAD_RADIUS * s;
-    const headY = baseY - HEAD_CENTER_Y * s;
+    const headY = baseY - (isSliding ? SLIDE_HEAD_CENTER_Y : HEAD_CENTER_Y) * s;
     ctx.fillStyle = COLORS.head;
     ctx.beginPath();
     ctx.arc(projOut.x, headY, headR, 0, TWO_PI);
@@ -206,13 +252,14 @@
     }
   }
 
-  // Expose frozen public API (strictly 6 methods)
+  // Expose frozen public API (strictly 7 methods)
   window.Player = Object.freeze({
     reset: reset,
     update: update,
     render: render,
     getHitbox: getHitbox,
     moveLane: moveLane,
-    jump: jump
+    jump: jump,
+    slide: slide
   });
 })(window.GameCore, window.Projection);
